@@ -13,10 +13,7 @@ class SearchEngine:
         access_key = await self.redis.get(user_key)
         if not access_key:
             access_key = await self.auth(user_key)
-            logger.info(
-                f"user_key: {user_key} "
-                f"access_key: {access_key}"
-            )
+            logger.info(f"user_key: {user_key} " f"access_key: {access_key}")
         ###
 
         headers = (tuple(["session_id", access_key]), *request.headers.items())
