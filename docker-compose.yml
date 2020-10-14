@@ -1,0 +1,39 @@
+version: "3.6"
+
+volumes:
+  db_data: {}
+
+services:
+  proxy:
+    build: .
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      REDIS_HOST: redis
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      DB_HOST: postgres
+    volumes:
+      - ./src:/opt/application
+    ports:
+      - 80:8000
+    restart: always
+
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    restart: always
+
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    ports:
+      - 5433:5432
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: always
