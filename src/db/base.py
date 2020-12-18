@@ -16,10 +16,23 @@ class DB:
         self.connect = connect
 
     async def get(self, pk):
-        return await self.connect.fetchraw(
+        return await self.connect.fetchrow(
             """
-            # Здесь должен быть запрос для получения одного объекта
-            """
+            SELECT 
+                c.inn, 
+                c.ogrn, 
+                c.name as company_name, 
+                c2.name as contact_name, 
+                c2.position, 
+                a.city, 
+                a.index, 
+                a.raw_object 
+            FROM company c
+            JOIN address a on c.inn = a.company_inn
+            JOIN contact c2 on c.inn = c2.company_inn
+            WHERE inn = $1
+            """,
+            str(pk)
         )
 
     async def search(self, query):

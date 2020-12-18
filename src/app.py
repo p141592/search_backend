@@ -1,4 +1,6 @@
 import logging.config
+import time
+
 import uvicorn
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
@@ -43,9 +45,8 @@ async def search(request):
 
 
 async def detail(request):
-    db = request.scope["pool"]
-    pk = request.path_params['pk'].hex
-    return UJSONResponse({"pk": pk})
+    data = await DB(request.scope["pool"]).get(request.path_params['pk'])
+    return UJSONResponse(dict(**data))
 
 
 class DBMiddleware:
@@ -61,6 +62,16 @@ class DBMiddleware:
             async with connection.transaction():
                 scope["pool"] = connection
                 await self.app(scope, receive, send)
+
+
+class TimeMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        _start = time.time()
+        await self.app(scope, receive, send)
+        logger.warning(f"= Время запроса: {_start - time.time()}")
 
 
 middleware = [
@@ -80,7 +91,7 @@ app = Starlette(
     exception_handlers=exception_handlers,
     routes=[
         Route('/', search),
-        Route('/{pk:uuid}', detail)
+        Route('/{pk:int}', detail)
     ]
 )
 
@@ -92,5 +103,5 @@ if __name__ == "__main__":
         port=8000,
         log_config=LOGGING_CONFIG,
         log_level=settings.LOGGING_LEVEL,
-        reload=True
+        reload=False
     )
