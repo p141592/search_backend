@@ -1,13 +1,14 @@
-import asyncio
-import logging
 import logging.config
-from typing import Any
-
-import orjson
 import uvicorn
-from starlette.requests import Request
-from starlette.responses import Response, JSONResponse
+from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import UJSONResponse, JSONResponse
+from starlette.routing import Route
+from starlette.types import ASGIApp, Scope, Receive, Send
 
+from db.base import DB
 from logs import LOGGING_CONFIG
 from setting import settings
 
@@ -15,57 +16,81 @@ logging.basicConfig(level=logging.DEBUG)
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger()
 
-DB_POOL = None
+
+async def http_exception(request, exc):
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
 
-async def init():
-    global DB_POOL
-    DB_POOL = ""
+exception_handlers = {HTTPException: http_exception}
 
 
-async def close():
-    global DB_POOL
-    await DB_POOL.close()
+async def search(request):
+    query = request.query_params.get("q")
+    if not query:
+        raise HTTPException(status_code=422, detail="Не указана строка поиска")
+
+    objects = [{"pk": "7d41ab1e-ffdf-473e-8a77-05e98e5251ad"}, {"pk": "7d41ab1e-ffdf-473e-8a77-05e98e5251ad"}]
+    return UJSONResponse({
+                "query": query,
+                "count": 0,
+                "limit": 100,
+                "offset": 0,
+                "order_by": "",
+                "filters": [],
+                "results": objects
+            }
+        )
 
 
-class ASGIApplication:
-    def __init__(self, scope):
-        assert scope["type"] == "http"
-        self.scope = scope
-        self.receive = None
-        self.send = None
-
-    async def __call__(self, receive, send):
-        self.receive = receive
-        self.send = send
-
-        request = Request(self.scope, self.receive)
-
-        if request.url.path == "/healthz":
-            return await self.empty_response()
-
-        return await self.response({"test": "test"})
-
-    async def response(self, data):
-        response = ORJSONResponse(data)
-        return await response(self.scope, self.receive, self.send)
-
-    async def empty_response(self):
-        return await Response(status_code=200, content=b"")(self.scope, self.receive, self.send)
+async def detail(request):
+    db = request.scope["pool"]
+    pk = request.path_params['pk'].hex
+    return UJSONResponse({"pk": pk})
 
 
-class ORJSONResponse(JSONResponse):
-    def render(self, content: Any) -> bytes:
-        return orjson.dumps(content)
+class DBMiddleware:
+    DB_POOL = None
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not self.DB_POOL:
+            self.DB_POOL = await DB.create_pool()
+        async with self.DB_POOL.acquire() as connection:
+            async with connection.transaction():
+                scope["pool"] = connection
+                await self.app(scope, receive, send)
+
+
+middleware = [
+    Middleware(DBMiddleware),
+    Middleware(CORSMiddleware, allow_origins=['*'])
+]
+
+
+async def db_close():
+    await DBMiddleware.DB_POOL.close()
+
+
+app = Starlette(
+    debug=True,
+    middleware=middleware,
+    on_shutdown=[db_close],
+    exception_handlers=exception_handlers,
+    routes=[
+        Route('/', search),
+        Route('/{pk:uuid}', detail)
+    ]
+)
 
 
 if __name__ == "__main__":
-    asyncio.run(init())
     uvicorn.run(
-        ASGIApplication,
+        "src.app:app",
         host="0.0.0.0",
         port=8000,
         log_config=LOGGING_CONFIG,
-        log_level=settings.LOGGING_LEVEL
+        log_level=settings.LOGGING_LEVEL,
+        reload=True
     )
-    asyncio.run(close())
