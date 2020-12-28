@@ -26,10 +26,12 @@ class DB:
                 c2.position, 
                 a.city, 
                 a.index, 
-                a.raw_object 
+                a.raw_object,
+                co.okved_code
             FROM company c
             JOIN address a on c.inn = a.company_inn
             JOIN contact c2 on c.inn = c2.company_inn
+            JOIN companies_okved co on c.inn = co.company_inn
             WHERE inn = $1
             """,
             str(pk)
@@ -42,7 +44,8 @@ class DB:
             """
         )
 
-    async def create_index(self):
-        await self.connect.fetch("CREATE EXTENSION IF not exists rum")
-        return await self.connect.fetch("CREATE INDEX rumidx ON company USING rum (a rum_tsvector_ops)"
-        )
+    async def get_categories(self):
+        return await self.connect.fetch("SELECT * FROM okved")
+
+    async def get_regions(self):
+        return await self.connect.fetch("SELECT distinct(city) FROM address Group By city")

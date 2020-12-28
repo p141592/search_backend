@@ -49,6 +49,16 @@ async def detail(request):
     return UJSONResponse(dict(**data))
 
 
+async def categories(request):
+    data = await DB(request.scope["pool"]).get_categories()
+    return UJSONResponse(dict(catefories=[dict(**i) for i in data]))
+
+
+async def regions(request):
+    data = await DB(request.scope["pool"]).get_regions()
+    return UJSONResponse(dict(regions=[dict(**i) for i in data]))
+
+
 class DBMiddleware:
     DB_POOL = None
 
@@ -91,7 +101,9 @@ app = Starlette(
     exception_handlers=exception_handlers,
     routes=[
         Route('/', search),
-        Route('/{pk:int}', detail)
+        Route('/{pk:int}', detail),
+        Route("/categories", categories),
+        Route("/regions", regions)
     ]
 )
 
@@ -103,5 +115,5 @@ if __name__ == "__main__":
         port=8000,
         log_config=LOGGING_CONFIG,
         log_level=settings.LOGGING_LEVEL,
-        reload=False
+        reload=True
     )
