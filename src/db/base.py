@@ -15,23 +15,17 @@ class DB:
     def __init__(self, connect):
         self.connect = connect
 
+    async def list(self, limit=100, offset=0, order_by="okved_code"):
+        return await self.connect.fetch(
+            """SELECT * FROM full_company LIMIT $1 OFFSET $2""", limit, offset
+        )
+
     async def get(self, pk):
         return await self.connect.fetchrow(
             """
             SELECT 
-                c.inn, 
-                c.ogrn, 
-                c.name as company_name, 
-                c2.name as contact_name, 
-                c2.position, 
-                a.city, 
-                a.index, 
-                a.raw_object,
-                co.okved_code
-            FROM company c
-            JOIN address a on c.inn = a.company_inn
-            JOIN contact c2 on c.inn = c2.company_inn
-            JOIN companies_okved co on c.inn = co.company_inn
+                *
+            FROM full_company
             WHERE inn = $1
             """,
             str(pk)

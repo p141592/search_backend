@@ -2,6 +2,7 @@ import logging.config
 import time
 
 import uvicorn
+from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
@@ -26,10 +27,18 @@ async def http_exception(request, exc):
 exception_handlers = {HTTPException: http_exception}
 
 
+async def list(request):
+    limit = int(request.query_params.get("limit", 100))
+    offset = int(request.query_params.get("offset", 0))
+    group = request.query_params.get("group", "okved_code")
+    data = await DB(request.scope["pool"]).list(limit, offset, group)
+    return UJSONResponse({"results": [dict(**i) for i in data]})
+
+
 async def search(request):
     query = request.query_params.get("q")
     if not query:
-        raise HTTPException(status_code=422, detail="Не указана строка поиска")
+        return await list(request)
 
     objects = [{"pk": "7d41ab1e-ffdf-473e-8a77-05e98e5251ad"}, {"pk": "7d41ab1e-ffdf-473e-8a77-05e98e5251ad"}]
     return UJSONResponse({
