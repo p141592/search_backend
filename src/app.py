@@ -50,12 +50,14 @@ async def detail(request):
 
 
 async def categories(request):
-    data = await DB(request.scope["pool"]).get_categories()
+    query = request.query_params.get("q")
+    data = await DB(request.scope["pool"]).get_categories(query)
     return UJSONResponse(dict(catefories=[dict(**i) for i in data]))
 
 
 async def regions(request):
-    data = await DB(request.scope["pool"]).get_regions()
+    query = request.query_params.get("q")
+    data = await DB(request.scope["pool"]).get_regions(query)
     return UJSONResponse(dict(regions=[dict(**i) for i in data]))
 
 

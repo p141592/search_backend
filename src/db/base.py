@@ -44,8 +44,24 @@ class DB:
             """
         )
 
-    async def get_categories(self):
-        return await self.connect.fetch("SELECT * FROM okved")
+    async def get_categories(self, query):
+        if query:
+            return await self.connect.fetch(
+                """
+                SELECT name, code
+                FROM okved
+                ORDER BY name <-> $1 LIMIT 10;
+                """, query
+            )
+        return await self.connect.fetch(
+            "SELECT * FROM okved ORDER BY code"
+        )
 
-    async def get_regions(self):
+    async def get_regions(self, query):
+        if query:
+            return await self.connect.fetch(
+                """
+                SELECT city FROM cities ORDER BY city <-> $1 LIMIT 10
+                """, query
+            )
         return await self.connect.fetch("SELECT distinct(city) FROM address Group By city")
